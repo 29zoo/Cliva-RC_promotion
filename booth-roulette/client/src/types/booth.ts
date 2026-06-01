@@ -1,11 +1,15 @@
-export type ProductId = "brush" | "battery" | "fan" | "ecobag";
-
-export type Product = {
-  id: ProductId;
+export type Prize = {
+  id: string;
   name: string;
   emoji: string;
   color: string;
+  sortOrder: number;
+  wheelSlots: number;
+  stock: number;
 };
+
+/** @deprecated Use Prize */
+export type Product = Pick<Prize, "id" | "name" | "emoji" | "color">;
 
 export type JobType =
   | "doctor"
@@ -37,7 +41,8 @@ export type Participant = {
 };
 
 export type BoothState = {
-  stock: Record<ProductId, number>;
+  wheelSegmentCount: number;
+  prizes: Prize[];
   vipList: VipEntry[];
   participants: Participant[];
 };
@@ -60,8 +65,11 @@ export type ScreenName =
   | "vip-thankyou"
   | "admin";
 
-export type SlotAngle = {
-  id: ProductId;
+export type WheelSegment = {
+  productId: string;
+  name: string;
+  emoji: string;
+  color: string;
   start: number;
   end: number;
   center: number;

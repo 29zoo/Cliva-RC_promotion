@@ -14,8 +14,4 @@ export function jobTypeLabel(id: string): string {
   return JOB_TYPES.find((j) => j.id === id)?.label ?? id;
 }
 
-/** client/.env → VITE_PROMO_VIDEO_URL (YouTube embed URL 또는 /promo.mp4 등) */
-export const PROMO_VIDEO_URL =
-  import.meta.env.VITE_PROMO_VIDEO_URL?.trim() || "";
-
 export const MIN_VIDEO_SECONDS = 10;

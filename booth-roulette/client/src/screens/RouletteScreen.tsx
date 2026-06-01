@@ -1,10 +1,11 @@
 import { Wheel } from "../components/Wheel";
-import { PRODUCTS } from "../lib/products";
-import type { ProductId } from "../types/booth";
+import type { Prize, WheelSegment } from "../types/booth";
 
 type RouletteScreenProps = {
   participant: { name: string; affiliation: string };
-  stock: Record<ProductId, number>;
+  prizes: Prize[];
+  wheelSegments: WheelSegment[];
+  stockByProduct: Record<string, number>;
   spinning: boolean;
   spinTarget: number | null;
   onSpin: () => void;
@@ -12,12 +13,15 @@ type RouletteScreenProps = {
 
 export function RouletteScreen({
   participant,
-  stock,
+  prizes,
+  wheelSegments,
+  stockByProduct,
   spinning,
   spinTarget,
   onSpin,
 }: RouletteScreenProps) {
   const label = `${participant.name}${participant.affiliation ? ` · ${participant.affiliation}` : ""}`;
+  const totalStock = prizes.reduce((s, p) => s + p.stock, 0);
 
   return (
     <div className="app-card">
@@ -26,24 +30,33 @@ export function RouletteScreen({
         <div style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>참가자</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#1e293b" }}>{label}</div>
       </div>
-      <Wheel spinning={spinning} onSpin={onSpin} spinTarget={spinTarget} />
+      <Wheel
+        segments={wheelSegments}
+        spinning={spinning}
+        onSpin={onSpin}
+        spinTarget={spinTarget}
+        stockByProduct={stockByProduct}
+      />
 
       <div className="stock-grid">
-        {PRODUCTS.map((p) => {
-          const s = stock[p.id];
-          const cls = s <= 0 ? "stock-item zero" : s <= 5 ? "stock-item low" : "stock-item";
+        {prizes.map((p) => {
+          const cls = p.stock <= 0 ? "stock-item zero" : p.stock <= 5 ? "stock-item low" : "stock-item";
+          const pct = totalStock > 0 ? Math.round((p.stock / totalStock) * 100) : 0;
           return (
             <div key={p.id} className={cls}>
               <div className="label">{p.name}</div>
               <div className="count">
-                {p.emoji} {s}개
+                {p.emoji} {p.stock}개
               </div>
+              {totalStock > 0 ? (
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>약 {pct}%</div>
+              ) : null}
             </div>
           );
         })}
       </div>
       <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginTop: 12 }}>
-        당첨 확률은 잔여 수량에 비례합니다
+        당첨 확률은 선물별 잔여 재고에 비례합니다 · 재고 0인 칸은 회색 표시
       </div>
     </div>
   );

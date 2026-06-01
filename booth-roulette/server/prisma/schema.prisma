@@ -7,9 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model PrizeProduct {
+  id         String @id
+  name       String
+  emoji      String @default("🎁")
+  color      String @default("#60a5fa")
+  sortOrder  Int    @default(0)
+  wheelSlots Int    @default(1)
+}
+
 model BoothStock {
   productId String @id
   count     Int
+}
+
+model BoothSetting {
+  key   String @id
+  value String
 }
 
 model VipEntry {

@@ -31,7 +31,7 @@ flowchart TD
 - 전화번호 기준 1인 1회 참여
 
 ### 2단계 — 홍보 동영상
-- `client/.env` → `VITE_PROMO_VIDEO_URL` (YouTube embed 또는 `/promo.mp4`)
+- **관리자 화면** → 🎬 홍보 영상 → MP4/WebM/MOV 업로드 (서버 저장)
 - 최소 10초 시청 후 다음 단계
 
 ### 3단계 — 퀴즈

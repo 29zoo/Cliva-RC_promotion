@@ -77,3 +77,36 @@ export async function savePrizeResult(
   }
   return data.state ?? fetchBoothState();
 }
+
+export type PromoVideoInfo = {
+  url: string | null;
+  originalName?: string;
+  uploadedAt?: string;
+  size?: number;
+  mimeType?: string;
+};
+
+export async function fetchPromoVideo(): Promise<PromoVideoInfo> {
+  const res = await fetch(apiUrl("/api/booth/promo-video"));
+  if (!res.ok) throw new Error("홍보 영상 정보를 불러오지 못했습니다.");
+  return res.json() as Promise<PromoVideoInfo>;
+}
+
+export async function uploadPromoVideo(file: File): Promise<PromoVideoInfo> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(apiUrl("/api/booth/promo-video"), {
+    method: "POST",
+    body: form,
+  });
+  const data = (await res.json()) as PromoVideoInfo & { message?: string };
+  if (!res.ok) {
+    throw new Error(data.message ?? "영상 업로드에 실패했습니다.");
+  }
+  return data;
+}
+
+export async function deletePromoVideo(): Promise<void> {
+  const res = await fetch(apiUrl("/api/booth/promo-video"), { method: "DELETE" });
+  if (!res.ok) throw new Error("영상 삭제에 실패했습니다.");
+}

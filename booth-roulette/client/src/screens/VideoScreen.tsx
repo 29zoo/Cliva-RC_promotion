@@ -1,21 +1,39 @@
 import { useEffect, useRef, useState } from "react";
-import { MIN_VIDEO_SECONDS, PROMO_VIDEO_URL } from "../lib/constants";
+import { fetchPromoVideo } from "../lib/api";
+import { MIN_VIDEO_SECONDS } from "../lib/constants";
 
 type VideoScreenProps = {
   onComplete: () => void;
 };
 
-function isYoutubeEmbed(url: string): boolean {
-  return /youtube\.com\/embed|youtu\.be/.test(url);
-}
-
 export function VideoScreen({ onComplete }: VideoScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [watched, setWatched] = useState(0);
-  const [canProceed, setCanProceed] = useState(!PROMO_VIDEO_URL);
+  const [canProceed, setCanProceed] = useState(false);
 
   useEffect(() => {
-    if (!PROMO_VIDEO_URL || isYoutubeEmbed(PROMO_VIDEO_URL)) {
+    let cancelled = false;
+    (async () => {
+      try {
+        const info = await fetchPromoVideo();
+        if (!cancelled && info.url) setVideoUrl(info.url);
+      } catch {
+        /* 영상 없음 — 대기 타이머로 진행 */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!videoUrl) {
       const timer = setInterval(() => {
         setWatched((w) => {
           const next = w + 1;
@@ -36,7 +54,7 @@ export function VideoScreen({ onComplete }: VideoScreenProps) {
     };
     el.addEventListener("timeupdate", onTimeUpdate);
     return () => el.removeEventListener("timeupdate", onTimeUpdate);
-  }, []);
+  }, [loading, videoUrl]);
 
   return (
     <div className="app-card">
@@ -47,23 +65,19 @@ export function VideoScreen({ onComplete }: VideoScreenProps) {
       </div>
 
       <div className="video-wrap">
-        {PROMO_VIDEO_URL ? (
-          isYoutubeEmbed(PROMO_VIDEO_URL) ? (
-            <iframe
-              src={PROMO_VIDEO_URL}
-              title="병원 홍보 영상"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          ) : (
-            <video ref={videoRef} src={PROMO_VIDEO_URL} controls playsInline />
-          )
+        {loading ? (
+          <div className="video-placeholder">
+            <div className="spinner" />
+            <p style={{ marginTop: 12, color: "#64748b", fontSize: 14 }}>영상 불러오는 중...</p>
+          </div>
+        ) : videoUrl ? (
+          <video ref={videoRef} src={videoUrl} controls playsInline />
         ) : (
           <div className="video-placeholder">
             <div style={{ fontSize: 48, marginBottom: 12 }}>🎬</div>
             <p style={{ fontWeight: 600, color: "#334155", marginBottom: 8 }}>홍보 영상 준비 중</p>
             <p style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
-              `VITE_PROMO_VIDEO_URL`에 영상 URL을 설정하면 재생됩니다.
+              관리자 화면에서 MP4 영상을 업로드하면 재생됩니다.
               <br />
               ({MIN_VIDEO_SECONDS}초 후 다음 단계로 이동할 수 있습니다)
             </p>
@@ -74,7 +88,7 @@ export function VideoScreen({ onComplete }: VideoScreenProps) {
       <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginTop: 12 }}>
         {canProceed
           ? "영상 시청이 완료되었습니다"
-          : `${MIN_VIDEO_SECONDS - watched}초 후 다음 단계로 이동할 수 있습니다`}
+          : `${Math.max(0, MIN_VIDEO_SECONDS - watched)}초 후 다음 단계로 이동할 수 있습니다`}
       </p>
 
       <button

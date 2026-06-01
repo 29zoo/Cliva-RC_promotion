@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchBoothState, saveBoothState } from "../lib/api";
-import { DEFAULT_STOCK } from "../lib/products";
-import type { BoothState, ProductId, VipEntry } from "../types/booth";
+import { DEFAULT_PRIZES, DEFAULT_WHEEL_SEGMENT_COUNT } from "../lib/wheel";
+import type { BoothState, Prize, VipEntry } from "../types/booth";
 
-const LOCAL_KEY = "booth_state_v3";
+const LOCAL_KEY = "booth_state_v4";
 
 function loadLocal(): BoothState | null {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as BoothState;
+    const parsed = JSON.parse(raw) as BoothState;
+    if (!parsed.prizes?.length) return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -25,7 +27,8 @@ function saveLocal(state: BoothState) {
 
 export function useBoothState() {
   const [state, setState] = useState<BoothState>({
-    stock: { ...DEFAULT_STOCK },
+    wheelSegmentCount: DEFAULT_WHEEL_SEGMENT_COUNT,
+    prizes: [...DEFAULT_PRIZES],
     vipList: [],
     participants: [],
   });
@@ -70,18 +73,20 @@ export function useBoothState() {
     async (next: BoothState) => {
       applyState(next);
       try {
-        await saveBoothState(next);
+        const saved = await saveBoothState(next);
+        applyState(saved);
         setSyncError(null);
-      } catch {
-        setSyncError("서버 동기화 실패 — 로컬에만 저장되었습니다.");
+      } catch (err) {
+        setSyncError(err instanceof Error ? err.message : "서버 동기화 실패 — 로컬에만 저장되었습니다.");
+        throw err;
       }
     },
     [applyState],
   );
 
-  const updateStock = useCallback(
-    (productId: ProductId, count: number) => {
-      void persist({ ...state, stock: { ...state.stock, [productId]: count } });
+  const savePrizeConfig = useCallback(
+    (wheelSegmentCount: number, prizes: Prize[]) => {
+      return persist({ ...state, wheelSegmentCount, prizes });
     },
     [persist, state],
   );
@@ -103,7 +108,7 @@ export function useBoothState() {
     syncError,
     refreshState,
     applyState,
-    updateStock,
+    savePrizeConfig,
     setVipList,
     resetParticipants,
   };

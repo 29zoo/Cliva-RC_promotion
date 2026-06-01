@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
+import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import { boothRoutes } from "./routes/booth.js";
 import { loadCorsConfig, logLevel, trustProxyEnabled } from "./lib/env.js";
+import { ensurePromoDir, PROMO_DIR } from "./lib/promo-video.js";
 import { prisma } from "./lib/prisma.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,6 +44,18 @@ await app.register(cors, {
 });
 
 app.get("/api/health", async () => ({ ok: true, service: "booth-roulette" }));
+
+ensurePromoDir();
+
+await app.register(multipart, {
+  limits: { fileSize: 500 * 1024 * 1024 },
+});
+
+await app.register(fastifyStatic, {
+  root: PROMO_DIR,
+  prefix: "/uploads/promo/",
+  decorateReply: false,
+});
 
 await boothRoutes(app);
 

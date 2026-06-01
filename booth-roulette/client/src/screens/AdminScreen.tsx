@@ -1,12 +1,13 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { PRODUCTS } from "../lib/products";
+import { deletePromoVideo, fetchPromoVideo, uploadPromoVideo, type PromoVideoInfo } from "../lib/api";
 import { jobTypeLabel } from "../lib/constants";
-import type { BoothState, ProductId, VipEntry } from "../types/booth";
+import { buildWheelSegments, createEmptyPrize, sumWheelSlots } from "../lib/wheel";
+import type { BoothState, Prize, VipEntry } from "../types/booth";
 
 type AdminScreenProps = {
   state: BoothState;
-  onUpdateStock: (id: ProductId, count: number) => void;
+  onSavePrizeConfig: (wheelSegmentCount: number, prizes: Prize[]) => Promise<void>;
   onSetVipList: (list: VipEntry[]) => void;
   onExportCsv: () => void;
   onResetParticipants: () => void;
@@ -22,16 +23,53 @@ function findCol(sampleKeys: string[], patterns: string[]): string | null {
   return null;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function AdminScreen({
   state,
-  onUpdateStock,
+  onSavePrizeConfig,
   onSetVipList,
   onExportCsv,
   onResetParticipants,
 }: AdminScreenProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const promoRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-  const [stockDraft, setStockDraft] = useState<Record<ProductId, number>>({ ...state.stock });
+  const [wheelSegmentCount, setWheelSegmentCount] = useState(state.wheelSegmentCount);
+  const [prizeDraft, setPrizeDraft] = useState<Prize[]>(state.prizes.map((p) => ({ ...p })));
+  const [prizeSaving, setPrizeSaving] = useState(false);
+  const [promoVideo, setPromoVideo] = useState<PromoVideoInfo | null>(null);
+  const [promoLoading, setPromoLoading] = useState(true);
+  const [promoUploading, setPromoUploading] = useState(false);
+
+  useEffect(() => {
+    setWheelSegmentCount(state.wheelSegmentCount);
+    setPrizeDraft(state.prizes.map((p) => ({ ...p })));
+  }, [state.wheelSegmentCount, state.prizes]);
+
+  const slotSum = sumWheelSlots(prizeDraft);
+  const slotsOk = slotSum === wheelSegmentCount;
+  const previewSegments = slotsOk ? buildWheelSegments(prizeDraft, wheelSegmentCount) : [];
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const info = await fetchPromoVideo();
+        if (!cancelled) setPromoVideo(info.url ? info : null);
+      } catch {
+        if (!cancelled) setPromoVideo(null);
+      } finally {
+        if (!cancelled) setPromoLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const showStatus = (type: "success" | "error", msg: string) => {
     setStatus({ type, msg });
@@ -110,8 +148,164 @@ export function AdminScreen({
     onResetParticipants();
   };
 
+  const handlePromoUpload = async (file: File) => {
+    setPromoUploading(true);
+    try {
+      const info = await uploadPromoVideo(file);
+      setPromoVideo(info.url ? info : null);
+      showStatus("success", `"${file.name}" 홍보 영상을 업로드했습니다.`);
+    } catch (err) {
+      showStatus("error", err instanceof Error ? err.message : "업로드에 실패했습니다.");
+    } finally {
+      setPromoUploading(false);
+    }
+  };
+
+  const handlePromoDelete = async () => {
+    if (!confirm("업로드된 홍보 영상을 삭제하시겠습니까?")) return;
+    try {
+      await deletePromoVideo();
+      setPromoVideo(null);
+      showStatus("success", "홍보 영상을 삭제했습니다.");
+    } catch (err) {
+      showStatus("error", err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    }
+  };
+
+  const updatePrize = (index: number, patch: Partial<Prize>) => {
+    setPrizeDraft((list) => list.map((p, i) => (i === index ? { ...p, ...patch } : p)));
+  };
+
+  const movePrize = (index: number, dir: -1 | 1) => {
+    setPrizeDraft((list) => {
+      const next = [...list];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return list;
+      [next[index], next[target]] = [next[target]!, next[index]!];
+      return next.map((p, i) => ({ ...p, sortOrder: i }));
+    });
+  };
+
+  const addPrize = () => {
+    setPrizeDraft((list) => [...list, createEmptyPrize(list.length)]);
+  };
+
+  const removePrize = (index: number) => {
+    if (prizeDraft.length <= 1) {
+      showStatus("error", "선물은 최소 1개 이상 필요합니다.");
+      return;
+    }
+    setPrizeDraft((list) => list.filter((_, i) => i !== index).map((p, i) => ({ ...p, sortOrder: i })));
+  };
+
+  const savePrizes = async () => {
+    if (!slotsOk) {
+      showStatus("error", `룰렛 칸 합(${slotSum})이 등분 수(${wheelSegmentCount})와 일치해야 합니다.`);
+      return;
+    }
+    if (prizeDraft.some((p) => !p.name.trim())) {
+      showStatus("error", "모든 선물의 이름을 입력해주세요.");
+      return;
+    }
+    setPrizeSaving(true);
+    try {
+      await onSavePrizeConfig(
+        wheelSegmentCount,
+        prizeDraft.map((p, i) => ({ ...p, name: p.name.trim(), sortOrder: i })),
+      );
+      showStatus("success", "선물·룰렛 설정을 저장했습니다. 룰렛 화면에 즉시 반영됩니다.");
+    } catch (err) {
+      showStatus("error", err instanceof Error ? err.message : "저장에 실패했습니다.");
+    } finally {
+      setPrizeSaving(false);
+    }
+  };
+
   return (
     <>
+      <div className="app-card">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <h2 className="app-h2" style={{ margin: 0 }}>
+            🎬 홍보 영상
+          </h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input
+              ref={promoRef}
+              type="file"
+              className="file-input"
+              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handlePromoUpload(f);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              disabled={promoUploading}
+              onClick={() => promoRef.current?.click()}
+              style={{
+                padding: "8px 12px",
+                background: "#1e3a5f",
+                color: "white",
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 600,
+                opacity: promoUploading ? 0.6 : 1,
+              }}
+            >
+              {promoUploading ? "업로드 중..." : "📤 영상 업로드"}
+            </button>
+            {promoVideo?.url ? (
+              <button
+                type="button"
+                onClick={() => void handlePromoDelete()}
+                style={{
+                  padding: "8px 12px",
+                  background: "#ef4444",
+                  color: "white",
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}
+              >
+                🗑 삭제
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {promoLoading ? (
+          <p style={{ color: "#94a3b8", fontSize: 14 }}>불러오는 중...</p>
+        ) : promoVideo?.url ? (
+          <>
+            <div className="video-wrap" style={{ marginBottom: 12 }}>
+              <video src={promoVideo.url} controls playsInline />
+            </div>
+            <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+              파일: {promoVideo.originalName ?? "—"}
+              {promoVideo.size ? ` · ${formatBytes(promoVideo.size)}` : ""}
+              {promoVideo.uploadedAt
+                ? ` · ${new Date(promoVideo.uploadedAt).toLocaleString("ko-KR")}`
+                : ""}
+            </p>
+          </>
+        ) : (
+          <p style={{ fontSize: 14, color: "#94a3b8", margin: 0 }}>
+            업로드된 홍보 영상이 없습니다. MP4·WebM·MOV 파일을 업로드하세요. (최대 500MB)
+          </p>
+        )}
+      </div>
+
       <div className="app-card">
         <div
           style={{
@@ -235,48 +429,197 @@ export function AdminScreen({
       </div>
 
       <div className="app-card">
-        <h2 className="app-h2">📦 상품 재고 관리</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {PRODUCTS.map((p) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 130, fontWeight: 600, color: "#334155" }}>
-                {p.emoji} {p.name}
-              </div>
-              <input
-                type="number"
-                min={0}
-                value={stockDraft[p.id]}
-                onChange={(e) =>
-                  setStockDraft((d) => ({ ...d, [p.id]: parseInt(e.target.value, 10) || 0 }))
-                }
-                style={{
-                  flex: 1,
-                  padding: 10,
-                  border: "2px solid #e2e8f0",
-                  borderRadius: 8,
-                  fontSize: 16,
-                  fontWeight: 600,
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => onUpdateStock(p.id, stockDraft[p.id])}
-                style={{
-                  padding: "10px 16px",
-                  background: "#1e3a5f",
-                  color: "white",
-                  borderRadius: 6,
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                저장
-              </button>
-            </div>
-          ))}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <h2 className="app-h2" style={{ margin: 0 }}>
+            🎡 선물 · 룰렛 설정
+          </h2>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={addPrize}
+              style={{
+                padding: "8px 12px",
+                background: "#e2e8f0",
+                color: "#334155",
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              ＋ 선물 추가
+            </button>
+            <button
+              type="button"
+              disabled={prizeSaving || !slotsOk}
+              onClick={() => void savePrizes()}
+              style={{
+                padding: "8px 12px",
+                background: "#1e3a5f",
+                color: "white",
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 600,
+                opacity: prizeSaving || !slotsOk ? 0.6 : 1,
+              }}
+            >
+              {prizeSaving ? "저장 중..." : "💾 전체 저장"}
+            </button>
+          </div>
         </div>
-        <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 12 }}>
-          당첨 확률은 잔여 수량에 비례합니다. 모든 상품 재고가 0이 되면 참여가 중단됩니다.
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <label style={{ fontWeight: 600, color: "#334155" }}>룰렛 등분 수</label>
+          <input
+            type="number"
+            min={2}
+            max={36}
+            value={wheelSegmentCount}
+            onChange={(e) => setWheelSegmentCount(Math.max(2, parseInt(e.target.value, 10) || 2))}
+            style={{
+              width: 72,
+              padding: 8,
+              border: "2px solid #e2e8f0",
+              borderRadius: 8,
+              fontSize: 16,
+              fontWeight: 600,
+            }}
+          />
+          <span style={{ fontSize: 13, color: slotsOk ? "#059669" : "#ef4444" }}>
+            칸 합계 {slotSum} / {wheelSegmentCount}
+            {!slotsOk ? " — 등분 수와 일치해야 저장 가능" : ""}
+          </span>
+        </div>
+
+        <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 12 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>순서</th>
+                <th>이름</th>
+                <th>이모지</th>
+                <th>색상</th>
+                <th>재고</th>
+                <th>룰렛 칸</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {prizeDraft.map((p, i) => (
+                <tr key={p.id}>
+                  <td>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button type="button" onClick={() => movePrize(i, -1)} disabled={i === 0} style={{ padding: "2px 6px" }}>
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => movePrize(i, 1)}
+                        disabled={i === prizeDraft.length - 1}
+                        style={{ padding: "2px 6px" }}
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={p.name}
+                      placeholder="선물 이름"
+                      onChange={(e) => updatePrize(i, { name: e.target.value })}
+                      style={{ width: "100%", minWidth: 100, padding: 8, border: "1px solid #e2e8f0", borderRadius: 6 }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={p.emoji}
+                      maxLength={4}
+                      onChange={(e) => updatePrize(i, { emoji: e.target.value })}
+                      style={{ width: 48, padding: 8, border: "1px solid #e2e8f0", borderRadius: 6, textAlign: "center" }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="color"
+                      value={p.color}
+                      onChange={(e) => updatePrize(i, { color: e.target.value })}
+                      style={{ width: 44, height: 36, border: "none", cursor: "pointer" }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      value={p.stock}
+                      onChange={(e) => updatePrize(i, { stock: parseInt(e.target.value, 10) || 0 })}
+                      style={{ width: 72, padding: 8, border: "1px solid #e2e8f0", borderRadius: 6 }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={1}
+                      max={wheelSegmentCount}
+                      value={p.wheelSlots}
+                      onChange={(e) => updatePrize(i, { wheelSlots: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                      style={{ width: 56, padding: 8, border: "1px solid #e2e8f0", borderRadius: 6 }}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => removePrize(i)}
+                      style={{ padding: "6px 10px", background: "#fee2e2", color: "#991b1b", borderRadius: 6, fontSize: 12 }}
+                    >
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {slotsOk && previewSegments.length > 0 ? (
+          <div style={{ maxWidth: 280, margin: "0 auto" }}>
+            <p style={{ fontSize: 12, color: "#64748b", textAlign: "center", marginBottom: 8 }}>룰렛 미리보기</p>
+            <svg viewBox="0 0 400 400" style={{ width: "100%", height: "auto" }}>
+              {previewSegments.map((seg, i) => {
+                const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180;
+                const polar = (angle: number, r: number) => ({
+                  x: 200 + r * Math.cos(toRad(angle)),
+                  y: 200 + r * Math.sin(toRad(angle)),
+                });
+                const start = polar(seg.end, 180);
+                const end = polar(seg.start, 180);
+                const largeArc = seg.end - seg.start > 180 ? 1 : 0;
+                const d = `M 200 200 L ${start.x} ${start.y} A 180 180 0 ${largeArc} 0 ${end.x} ${end.y} Z`;
+                return <path key={i} d={d} fill={seg.color} stroke="white" strokeWidth="2" />;
+              })}
+            </svg>
+          </div>
+        ) : null}
+
+        <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 12, marginBottom: 0 }}>
+          선물별 <strong>룰렛 칸</strong> 합 = <strong>등분 수</strong>. 당첨 확률은 <strong>잔여 재고</strong>에 비례합니다.
         </p>
       </div>
 

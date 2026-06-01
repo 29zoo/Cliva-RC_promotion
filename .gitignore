@@ -19,6 +19,9 @@ node_modules/
 **/dev.db-wal
 **/dev.db-shm
 
+# 업로드 파일 (홍보 영상 등)
+**/uploads/
+
 # Logs & OS
 *.log
 .DS_Store

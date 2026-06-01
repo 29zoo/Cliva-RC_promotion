@@ -3,8 +3,8 @@ import { AppHeader } from "./components/AppHeader";
 import { ResultModal } from "./components/ResultModal";
 import { useBoothState } from "./hooks/useBoothState";
 import { registerParticipant, savePrizeResult, saveQuizResult } from "./lib/api";
-import { PRODUCTS, SLOT_ANGLES } from "./lib/products";
 import { pickRandomQuiz } from "./lib/quiz";
+import { buildWheelSegments, pickPrizeByStock } from "./lib/wheel";
 import { findVipMatch } from "./lib/vip";
 import { AdminScreen } from "./screens/AdminScreen";
 import { InfoInputScreen } from "./screens/InfoInputScreen";
@@ -13,7 +13,7 @@ import { RouletteScreen } from "./screens/RouletteScreen";
 import { VideoScreen } from "./screens/VideoScreen";
 import { VipThankYouScreen } from "./screens/VipThankYouScreen";
 import { WelcomeScreen } from "./screens/WelcomeScreen";
-import type { JobType, Product, QuizQuestion, ScreenName, SessionParticipant } from "./types/booth";
+import type { JobType, Prize, QuizQuestion, ScreenName, SessionParticipant } from "./types/booth";
 
 function resetSession() {
   return {
@@ -25,7 +25,7 @@ function resetSession() {
 }
 
 export default function App() {
-  const { state, loading, syncError, refreshState, applyState, updateStock, setVipList, resetParticipants } =
+  const { state, loading, syncError, refreshState, applyState, savePrizeConfig, setVipList, resetParticipants } =
     useBoothState();
 
   const [screen, setScreen] = useState<ScreenName>("welcome");
@@ -38,8 +38,18 @@ export default function App() {
   const [spinning, setSpinning] = useState(false);
   const [spinTarget, setSpinTarget] = useState<number | null>(null);
   const [currentRotation, setCurrentRotation] = useState(0);
-  const [resultProduct, setResultProduct] = useState<Product | null>(null);
+  const [resultProduct, setResultProduct] = useState<Prize | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
+
+  const wheelSegments = useMemo(
+    () => buildWheelSegments(state.prizes, state.wheelSegmentCount),
+    [state.prizes, state.wheelSegmentCount],
+  );
+
+  const stockByProduct = useMemo(
+    () => Object.fromEntries(state.prizes.map((p) => [p.id, p.stock])),
+    [state.prizes],
+  );
 
   const vipCount = useMemo(() => state.participants.filter((p) => p.isVip && p.completedAt).length, [state.participants]);
 
@@ -125,26 +135,15 @@ export default function App() {
   const spin = useCallback(async () => {
     if (spinning || !session) return;
 
-    const available = PRODUCTS.filter((p) => state.stock[p.id] > 0);
-    if (available.length === 0) {
+    const picked = pickPrizeByStock(state.prizes);
+    if (!picked) {
       alert("모든 경품이 소진되었습니다.");
       return;
     }
 
     setSpinning(true);
 
-    const totalStock = available.reduce((s, p) => s + state.stock[p.id], 0);
-    let rand = Math.random() * totalStock;
-    let picked = available[0]!;
-    for (const p of available) {
-      rand -= state.stock[p.id];
-      if (rand <= 0) {
-        picked = p;
-        break;
-      }
-    }
-
-    const matchingSlots = SLOT_ANGLES.filter((s) => s.id === picked.id);
+    const matchingSlots = wheelSegments.filter((s) => s.productId === picked.id);
     const slot = matchingSlots[Math.floor(Math.random() * matchingSlots.length)]!;
     const inset = slot.sweep * 0.15;
     const targetCenter = slot.start + inset + Math.random() * (slot.sweep - 2 * inset);
@@ -167,7 +166,7 @@ export default function App() {
         setSpinning(false);
       }
     }, 5100);
-  }, [applyState, currentRotation, session, spinning, state.stock]);
+  }, [applyState, currentRotation, session, spinning, state.prizes, wheelSegments]);
 
   const finishPrize = useCallback(() => {
     setResultOpen(false);
@@ -254,7 +253,9 @@ export default function App() {
         {screen === "roulette" && session ? (
           <RouletteScreen
             participant={{ name: session.name, affiliation: session.affiliation }}
-            stock={state.stock}
+            prizes={state.prizes}
+            wheelSegments={wheelSegments}
+            stockByProduct={stockByProduct}
             spinning={spinning}
             spinTarget={spinTarget}
             onSpin={() => void spin()}
@@ -273,7 +274,7 @@ export default function App() {
         {screen === "admin" ? (
           <AdminScreen
             state={state}
-            onUpdateStock={updateStock}
+            onSavePrizeConfig={savePrizeConfig}
             onSetVipList={setVipList}
             onExportCsv={exportCsv}
             onResetParticipants={resetParticipants}
