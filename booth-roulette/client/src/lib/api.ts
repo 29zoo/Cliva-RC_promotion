@@ -1,13 +1,19 @@
 import type { BoothState, JobType, Participant } from "../types/booth";
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
+
+function apiUrl(path: string): string {
+  return API_BASE ? `${API_BASE}${path}` : path;
+}
+
 export async function fetchBoothState(): Promise<BoothState> {
-  const res = await fetch("/api/booth/state");
+  const res = await fetch(apiUrl("/api/booth/state"));
   if (!res.ok) throw new Error("상태를 불러오지 못했습니다.");
   return res.json() as Promise<BoothState>;
 }
 
 export async function saveBoothState(state: BoothState): Promise<BoothState> {
-  const res = await fetch("/api/booth/state", {
+  const res = await fetch(apiUrl("/api/booth/state"), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(state),
@@ -30,7 +36,7 @@ export type RegisterResponse = {
 };
 
 export async function registerParticipant(payload: RegisterPayload): Promise<RegisterResponse> {
-  const res = await fetch("/api/booth/register", {
+  const res = await fetch(apiUrl("/api/booth/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -47,7 +53,7 @@ export async function saveQuizResult(
   quizQuestionId: number,
   quizCorrect: boolean,
 ): Promise<void> {
-  const res = await fetch(`/api/booth/participants/${participantId}/quiz`, {
+  const res = await fetch(apiUrl(`/api/booth/participants/${participantId}/quiz`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quizQuestionId, quizCorrect }),
@@ -60,7 +66,7 @@ export async function savePrizeResult(
   prize: string,
   productId: string,
 ): Promise<BoothState> {
-  const res = await fetch(`/api/booth/participants/${participantId}/prize`, {
+  const res = await fetch(apiUrl(`/api/booth/participants/${participantId}/prize`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prize, productId }),

@@ -7,13 +7,18 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import fastifyStatic from "@fastify/static";
 import { boothRoutes } from "./routes/booth.js";
+import { loadCorsConfig, logLevel, trustProxyEnabled } from "./lib/env.js";
 import { prisma } from "./lib/prisma.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const port = Number(process.env.PORT ?? 4000);
+const port = Number(process.env.PORT ?? 4001);
 const host = process.env.HOST ?? "0.0.0.0";
+const corsConfig = loadCorsConfig();
 
-const app = Fastify({ logger: true });
+const app = Fastify({
+  logger: { level: logLevel() },
+  trustProxy: trustProxyEnabled(),
+});
 
 await app.register(helmet, {
   global: true,
@@ -21,7 +26,18 @@ await app.register(helmet, {
 });
 
 await app.register(cors, {
-  origin: true,
+  origin: (origin, callback) => {
+    if (corsConfig.mode === "reflect") {
+      callback(null, true);
+      return;
+    }
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    const ok = corsConfig.origins.includes(origin);
+    callback(null, ok);
+  },
   credentials: true,
 });
 

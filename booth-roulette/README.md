@@ -7,7 +7,7 @@
 | 영역 | 기술 |
 |------|------|
 | 클라이언트 | Vite 8, React 19, TypeScript, Tailwind CSS 4 |
-| 서버 | Fastify 5, TypeScript, Prisma (SQLite) |
+| 서버 | Fastify 5, TypeScript, Prisma (PostgreSQL) |
 | 기타 | xlsx (VIP 엑셀) |
 
 ## 참가 흐름 (5단계)
