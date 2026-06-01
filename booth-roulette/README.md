@@ -8,7 +8,7 @@
 |------|------|
 | 클라이언트 | Vite 8, React 19, TypeScript, Tailwind CSS 4 |
 | 서버 | Fastify 5, TypeScript, Prisma (SQLite) |
-| 기타 | xlsx (VIP 엑셀), Anthropic API (명찰 OCR) |
+| 기타 | xlsx (VIP 엑셀) |
 
 ## 참가 흐름 (5단계)
 
@@ -53,9 +53,9 @@ cd "d:\Cliva RC\Promotion\booth-roulette"
 # 의존성 설치
 npm install
 
-# 환경 변수 (server/.env)
-copy .env.example server\.env
-# server\.env 에 ANTHROPIC_API_KEY 설정 (명찰 OCR 사용 시)
+# server/.env · client/.env 생성 (각 .env.example 참고)
+copy server\.env.example server\.env
+copy client\.env.example client\.env
 
 # DB 마이그레이션
 npm run db:migrate
