@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>부스 룰렛 시스템</title>
+<style>
+  /* === Tailwind CDN 로드 실패 대비 핵심 Fallback CSS === */
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+    background-color: #f1f5f9;
+    color: #1e293b;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4, p, label, input, button { font-family: inherit; }
+  button { cursor: pointer; border: none; background: none; }
+  input { font-size: inherit; }
+  
+  /* 헤더 */
+  .app-header {
+    background-color: #1e3a5f;
+    color: white;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .app-header-inner {
+    max-width: 56rem;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .app-header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .app-header .stat-bar {
+    font-size: 12px;
+    color: #cbd5e1;
+    margin-top: 2px;
+  }
+  .app-header-btn {
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-left: 8px;
+  }
+  .app-header-btn:hover { background: rgba(255,255,255,0.2); }
+  
+  /* 컨테이너 */
+  .app-container {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  
+  /* 카드 */
+  .app-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .app-card.center { text-align: center; padding: 32px 24px; }
+  
+  /* 타이포 */
+  .app-h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 8px 0;
+  }
+  .app-subtitle {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0 0 24px 0;
+  }
+  
+  /* 입력 필드 */
+  .app-input {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    background-color: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    transition: all 0.2s;
+    outline: none;
+  }
+  .app-input:focus {
+    background-color: white;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  }
+  .app-input.emerald:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+  }
+  .app-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 8px;
+  }
+  .app-label-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #dbeafe;
+    color: #2563eb;
+    font-size: 12px;
+  }
+  .app-label-icon.emerald { background-color: #d1fae5; color: #059669; }
+  .input-group { margin-bottom: 16px; }
+  
+  /* 버튼 */
+  .btn-primary {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    color: white;
+    padding: 18px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 12px;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(30, 58, 95, 0.25);
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .btn-primary:hover { box-shadow: 0 6px 16px rgba(30, 58, 95, 0.35); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary {
+    background-color: #f1f5f9;
+    color: #334155;
+    padding: 18px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background-color: #e2e8f0; }
+  .btn-row {
+    display: flex;
+    gap: 12px;
+  }
+  .btn-row > .btn-secondary { flex: 1; }
+  .btn-row > .btn-primary { flex: 2; }
+  
+  /* 안내문 */
+  .step-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .warn-box {
+    padding: 16px;
+    background-color: #fffbeb;
+    border: 2px solid #fcd34d;
+    border-radius: 12px;
+    color: #92400e;
+    font-size: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  
+  /* 룰렛 */
+  .wheel-container {
+    position: relative;
+    width: min(420px, 90vw);
+    height: min(420px, 90vw);
+    margin: 0 auto;
+  }
+  .wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    transition: transform 5s cubic-bezier(0.17, 0.67, 0.21, 1);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.15), inset 0 0 0 8px #fff, inset 0 0 0 12px #f59e0b;
+  }
+  .pointer {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-top: 32px solid #ef4444;
+    z-index: 10;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  .center-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    color: white;
+    border: 6px solid white;
+    box-shadow: 0 6px 20px rgba(30, 58, 95, 0.4);
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 700;
+    z-index: 5;
+  }
+  .center-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  
+  /* 재고 표시 */
+  .stock-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 24px;
+  }
+  .stock-item {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+    font-size: 12px;
+  }
+  .stock-item .label { color: #64748b; margin-bottom: 2px; }
+  .stock-item .count { font-weight: 700; color: #334155; }
+  .stock-item.low { background: #fffbeb; color: #b45309; }
+  .stock-item.zero { background: #f1f5f9; color: #94a3b8; }
+  
+  /* 모달 */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: white;
+    padding: 32px;
+    border-radius: 24px;
+    max-width: 28rem;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes pop {
+    0% { transform: scale(0.7); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  /* VIP 배지 */
+  .vip-badge {
+    padding: 16px;
+    background: linear-gradient(to right, #fffbeb, #fef9c3, #fffbeb);
+    border: 2px solid #fcd34d;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .vip-badge-icon { font-size: 28px; }
+  .vip-badge-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #b45309;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+  .vip-badge-name {
+    font-weight: 700;
+    color: #78350f;
+  }
+  .vip-badge-aff {
+    font-size: 12px;
+    color: #b45309;
+    margin-top: 2px;
+  }
+  
+  /* OCR 미리보기 */
+  .ocr-preview {
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .ocr-preview img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .ocr-preview-text {
+    flex: 1;
+    font-size: 12px;
+    color: #64748b;
+  }
+  .ocr-preview-title {
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 4px;
+  }
+  
+  /* 스피너 */
+  .spinner {
+    display: inline-block;
+    width: 48px;
+    height: 48px;
+    border: 4px solid #1e3a5f;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* 테이블 */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: #f8fafc; color: #475569; padding: 8px; text-align: left; }
+  td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+  tr.vip-row { background-color: #fef9c3; }
+  
+  /* 색종이 */
+  .confetti-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 100;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 14px;
+    top: -20px;
+    opacity: 0;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall {
+    0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+    100% { opacity: 1; transform: translateY(105vh) rotate(720deg); }
+  }
+  
+  /* 화면 전환 */
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .file-input { display: none; }
+  
+  /* Tailwind 호환용 일부 유틸 */
+  .hidden { display: none !important; }
+  .text-center { text-align: center; }
+  .mt-3 { margin-top: 12px; }
+  .mt-4 { margin-top: 16px; }
+  .mt-6 { margin-top: 24px; }
+  .mb-2 { margin-bottom: 8px; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-6 { margin-bottom: 24px; }
+  .text-xs { font-size: 12px; }
+  .text-sm { font-size: 14px; }
+  .font-bold { font-weight: 700; }
+  .font-semibold { font-weight: 600; }
+  .text-slate-400 { color: #94a3b8; }
+  .text-slate-500 { color: #64748b; }
+  .text-slate-600 { color: #475569; }
+  .text-slate-700 { color: #334155; }
+  .text-slate-800 { color: #1e293b; }
+  .text-red-500 { color: #ef4444; }
+</style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wheel-container {
+    position: relative;
+    width: min(420px, 90vw);
+    height: min(420px, 90vw);
+    margin: 0 auto;
+  }
+  .wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    transition: transform 5s cubic-bezier(0.17, 0.67, 0.21, 1);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.15), inset 0 0 0 8px #fff, inset 0 0 0 12px #f59e0b;
+  }
+  .pointer {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-top: 32px solid #ef4444;
+    z-index: 10;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  .center-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    color: white;
+    border: 6px solid white;
+    box-shadow: 0 6px 20px rgba(30, 58, 95, 0.4);
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 700;
+    z-index: 5;
+  }
+  .center-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  @keyframes pop {
+    0% { transform: scale(0.7); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .modal { animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .file-input { display: none; }
+  .big-btn {
+    padding: 20px 32px;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 12px;
+    transition: transform 0.1s;
+  }
+  .big-btn:active { transform: scale(0.98); }
+  
+  /* 색종이 효과 */
+  .confetti-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 100;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 10px;
+    height: 14px;
+    top: -20px;
+    opacity: 0;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall {
+    0% {
+      opacity: 1;
+      transform: translateY(0) rotate(0deg);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(105vh) rotate(720deg);
+    }
+  }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- 헤더 -->
+<div class="app-header">
+  <div class="app-header-inner">
+    <div>
+      <h1>🎰 부스 경품 룰렛</h1>
+      <div class="stat-bar" id="statBar">참가자 0명</div>
+    </div>
+    <div>
+      <button onclick="showScreen('main')" class="app-header-btn">홈</button>
+      <button onclick="showScreen('admin')" class="app-header-btn">관리</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-container">
+
+<!-- 메인 화면 -->
+<div id="screen-main" class="screen active">
+  <div class="app-card center">
+    <div style="font-size: 56px; margin-bottom: 8px;">🎁</div>
+    <h2 class="app-h2">방문해 주셔서 감사합니다</h2>
+    <p class="app-subtitle">명찰을 촬영하시면 경품 룰렛에 참여할 수 있습니다</p>
+    <input type="file" id="badgeCamera" class="file-input" accept="image/*" capture="environment" onchange="handleBadgePhoto(event)">
+    <button onclick="document.getElementById('badgeCamera').click()" class="btn-primary" style="max-width: 28rem; margin: 0 auto;">
+      📷  명찰 촬영하기
+    </button>
+    <div class="mt-6" style="font-size: 14px; color: #94a3b8;">
+      <button onclick="showScreen('manual')" style="text-decoration: underline; color: #64748b; background: none; padding: 0;">
+        명찰 없이 직접 입력하기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- OCR 처리 중 -->
+<div id="screen-ocr" class="screen">
+  <div class="app-card center">
+    <h2 class="app-h2">명찰 정보 확인 중...</h2>
+    <div id="ocrPreview" class="mb-4"></div>
+    <div class="spinner"></div>
+    <p class="app-subtitle" style="margin-top: 16px;">AI가 이미지를 분석하고 있습니다</p>
+  </div>
+</div>
+
+<!-- 정보 확인 화면 -->
+<div id="screen-confirm" class="screen">
+  <div class="app-card">
+    <div class="text-center mb-4">
+      <div class="step-label">STEP 2 / 3</div>
+      <h2 class="app-h2">정보 확인</h2>
+      <p class="app-subtitle">정보가 맞는지 확인 후 룰렛을 돌려주세요</p>
+    </div>
+    
+    <div id="confirmPhoto"></div>
+    <div id="vipBadge" class="hidden"></div>
+    
+    <div class="input-group">
+      <label class="app-label">
+        <span class="app-label-icon">👤</span>
+        이름 <span class="text-red-500">*</span>
+      </label>
+      <input type="text" id="confirmName" class="app-input" placeholder="이름을 입력하세요">
+    </div>
+    <div class="input-group">
+      <label class="app-label">
+        <span class="app-label-icon emerald">🏢</span>
+        소속
+      </label>
+      <input type="text" id="confirmAffiliation" class="app-input emerald" placeholder="소속 기관명을 입력하세요">
+    </div>
+    
+    <div id="duplicateWarning" class="warn-box hidden">
+      <span style="font-size: 20px;">⚠️</span>
+      <div>
+        <div class="font-bold mb-2">이미 참여하신 분입니다</div>
+        <div class="text-xs">1인 1회만 참여 가능합니다.</div>
+      </div>
+    </div>
+    
+    <div class="btn-row">
+      <button onclick="showScreen('main')" class="btn-secondary">취소</button>
+      <button onclick="proceedToRoulette()" id="proceedBtn" class="btn-primary">🎰 룰렛 참여하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 수동 입력 -->
+<div id="screen-manual" class="screen">
+  <div class="app-card">
+    <div class="text-center mb-4">
+      <div class="step-label">직접 입력</div>
+      <h2 class="app-h2">참가자 정보 입력</h2>
+      <p class="app-subtitle">이름과 소속을 직접 입력해주세요</p>
+    </div>
+    
+    <div class="input-group">
+      <label class="app-label">
+        <span class="app-label-icon">👤</span>
+        이름 <span class="text-red-500">*</span>
+      </label>
+      <input type="text" id="manualName" class="app-input" placeholder="예) 홍길동">
+    </div>
+    <div class="input-group">
+      <label class="app-label">
+        <span class="app-label-icon emerald">🏢</span>
+        소속
+      </label>
+      <input type="text" id="manualAffiliation" class="app-input emerald" placeholder="예) 국립교통재활병원">
+    </div>
+    
+    <div class="btn-row">
+      <button onclick="showScreen('main')" class="btn-secondary">취소</button>
+      <button onclick="submitManual()" class="btn-primary">다음 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- 룰렛 화면 -->
+<div id="screen-roulette" class="screen">
+  <div class="app-card">
+    <div class="text-center mb-4">
+      <div class="step-label">STEP 3 / 3</div>
+      <div style="font-size: 13px; color: #64748b; margin-bottom: 4px;">참가자</div>
+      <div id="rouletteParticipant" style="font-size: 20px; font-weight: 700; color: #1e293b;"></div>
+    </div>
+
+    <div class="wheel-container">
+      <div class="pointer"></div>
+      <svg class="wheel" id="wheel" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 200 200 L 200 20 A 180 180 0 0 1 355.88 110 Z" fill="#60a5fa" stroke="white" stroke-width="2"/>
+        <path d="M 200 200 L 355.88 110 A 180 180 0 0 1 355.88 290 Z" fill="#f59e0b" stroke="white" stroke-width="2"/>
+        <path d="M 200 200 L 355.88 290 A 180 180 0 0 1 200 380 Z" fill="#60a5fa" stroke="white" stroke-width="2"/>
+        <path d="M 200 200 L 200 380 A 180 180 0 0 1 44.12 290 Z" fill="#10b981" stroke="white" stroke-width="2"/>
+        <path d="M 200 200 L 44.12 290 A 180 180 0 0 1 44.12 110 Z" fill="#60a5fa" stroke="white" stroke-width="2"/>
+        <path d="M 200 200 L 44.12 110 A 180 180 0 0 1 200 20 Z" fill="#ec4899" stroke="white" stroke-width="2"/>
+        
+        <g font-family="Pretendard, sans-serif" font-weight="800" fill="white" text-anchor="middle" dominant-baseline="middle" style="text-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events: none;">
+          <text x="260" y="96.08" font-size="17" transform="rotate(30 260 96.08)">칫솔</text>
+          <text x="320" y="200" font-size="15" transform="rotate(90 320 200)">보조배터리</text>
+          <text x="260" y="303.92" font-size="17" transform="rotate(150 260 303.92)">칫솔</text>
+          <text x="140" y="303.92" font-size="17" transform="rotate(210 140 303.92)">부채</text>
+          <text x="80" y="200" font-size="17" transform="rotate(270 80 200)">칫솔</text>
+          <text x="140" y="96.08" font-size="17" transform="rotate(330 140 96.08)">에코백</text>
+        </g>
+      </svg>
+      <button class="center-btn" id="spinBtn" onclick="spin()">START</button>
+    </div>
+
+    <div class="stock-grid" id="stockDisplay"></div>
+    <div style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: 12px;">
+      당첨 확률은 잔여 수량에 비례합니다
+    </div>
+  </div>
+</div>
+
+<!-- 관리 화면 -->
+<div id="screen-admin" class="screen">
+  <!-- VIP 명단 -->
+  <div class="app-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+      <h2 class="app-h2" style="margin: 0;">⭐ VIP 명단 <span id="vipCount" style="font-size: 16px; color: #94a3b8; font-weight: normal;"></span></h2>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <input type="file" id="vipFileInput" class="file-input" accept=".xlsx,.xls,.csv" onchange="handleVipFile(event)">
+        <button onclick="document.getElementById('vipFileInput').click()" style="padding: 8px 12px; background: #f59e0b; color: white; border-radius: 6px; font-size: 14px; font-weight: 600;">
+          📤 엑셀 업로드
+        </button>
+        <button onclick="downloadVipTemplate()" style="padding: 8px 12px; background: #e2e8f0; color: #334155; border-radius: 6px; font-size: 14px; font-weight: 600;">
+          📄 템플릿
+        </button>
+        <button onclick="clearVipList()" style="padding: 8px 12px; background: #ef4444; color: white; border-radius: 6px; font-size: 14px; font-weight: 600;">
+          🗑 삭제
+        </button>
+      </div>
+    </div>
+    <div id="vipUploadStatus" class="hidden" style="margin-bottom: 12px; padding: 12px; border-radius: 6px; font-size: 14px;"></div>
+    <div style="overflow-x: auto; max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>한글이름</th>
+            <th>영문이름</th>
+            <th>소속</th>
+          </tr>
+        </thead>
+        <tbody id="vipListBody"></tbody>
+      </table>
+    </div>
+    <p style="font-size: 12px; color: #94a3b8; margin-top: 12px;">
+      엑셀 컬럼: <code>한글이름 / 영문이름 / 소속</code> 순서 또는 비슷한 이름의 헤더가 자동 인식됩니다.
+    </p>
+  </div>
+
+  <!-- 재고 관리 -->
+  <div class="app-card">
+    <h2 class="app-h2">📦 상품 재고 관리</h2>
+    <div id="stockEditor" style="display: flex; flex-direction: column; gap: 12px;"></div>
+    <p style="font-size: 12px; color: #94a3b8; margin-top: 12px;">
+      당첨 확률은 잔여 수량에 비례합니다. 모든 상품 재고가 0이 되면 참여가 중단됩니다.
+    </p>
+  </div>
+  
+  <!-- 참가자 명단 -->
+  <div class="app-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+      <h2 class="app-h2" style="margin: 0;">👥 참가자 명단 <span id="participantCount" style="font-size: 16px; color: #94a3b8; font-weight: normal;"></span></h2>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="exportCSV()" style="padding: 8px 12px; background: #1e3a5f; color: white; border-radius: 6px; font-size: 14px; font-weight: 600;">
+          📥 CSV 내보내기
+        </button>
+        <button onclick="resetAll()" style="padding: 8px 12px; background: #ef4444; color: white; border-radius: 6px; font-size: 14px; font-weight: 600;">
+          🗑 초기화
+        </button>
+      </div>
+    </div>
+    <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>시각</th>
+            <th>VIP</th>
+            <th>이름</th>
+            <th>소속</th>
+            <th>결과</th>
+          </tr>
+        </thead>
+        <tbody id="participantList"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- 결과 모달 -->
+<div id="resultModal" class="modal-overlay">
+  <div class="modal-box">
+    <div id="resultVipBadge" class="hidden" style="display: inline-block; margin-bottom: 12px; padding: 4px 16px; background: linear-gradient(to right, #fbbf24, #f59e0b); color: white; font-size: 13px; font-weight: 700; border-radius: 999px;">
+      ⭐ VIP 당첨자
+    </div>
+    
+    <div style="font-size: 11px; font-weight: 700; color: #94a3b8; letter-spacing: 0.15em; margin-bottom: 4px;">🎉 CONGRATULATIONS 🎉</div>
+    <div style="font-size: 15px; font-weight: 600; color: #475569; margin-bottom: 16px;">축하합니다!</div>
+    
+    <div style="font-size: 64px; margin-bottom: 12px;" id="modalEmoji">🎉</div>
+    
+    <div style="font-size: 36px; font-weight: 800; margin-bottom: 8px; color: #1e3a5f;" id="modalResult">-</div>
+    
+    <div style="font-size: 15px; color: #475569; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #e2e8f0;" id="modalRecipient"></div>
+    
+    <div style="background: #fffbeb; border: 2px solid #fcd34d; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+      <div style="font-size: 11px; font-weight: 700; color: #b45309; margin-bottom: 4px;">📢 운영자 안내</div>
+      <div style="font-size: 15px; font-weight: 600; color: #78350f;" id="staffGuide">상품을 전달해주세요</div>
+    </div>
+    
+    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">
+      <span id="autoCloseTimer">10</span>초 후 자동으로 다음 손님 응대 화면으로 이동합니다
+    </div>
+    
+    <button onclick="finishRoulette()" class="btn-primary">
+      ✅ 상품 지급 완료
+    </button>
+  </div>
+</div>
+
+<script>
+  // ===== 상품 정의 =====
+  // 화사한 색상 팔레트 (행사 분위기)
+  const PRODUCTS = [
+    { id: 'brush',   name: '칫솔',       emoji: '🪥', color: '#60a5fa' }, // 밝은 파랑
+    { id: 'battery', name: '보조배터리', emoji: '🔋', color: '#f59e0b' }, // 앰버
+    { id: 'fan',     name: '부채',       emoji: '🪭', color: '#10b981' }, // 에메랄드
+    { id: 'ecobag',  name: '에코백',     emoji: '🛍️', color: '#ec4899' }, // 핑크
+  ];
+
+  // ===== 룰렛 칸 배치 (6칸 균등, 각 60도) =====
+  // 시각적으로는 균등하게, 당첨 확률은 잔여 수량 기반
+  // 칫솔이 다수이므로 3개 슬롯에 배치, 다른 상품은 각 1개 슬롯
+  const WHEEL_SLOTS = [
+    { id: 'brush',   weight: 1 },
+    { id: 'battery', weight: 1 },
+    { id: 'brush',   weight: 1 },
+    { id: 'fan',     weight: 1 },
+    { id: 'brush',   weight: 1 },
+    { id: 'ecobag',  weight: 1 },
+  ];
+
+  let state = {
+    stock: { brush: 1000, battery: 100, fan: 100, ecobag: 100 },
+    participants: [],
+    pending: null,
+    currentRotation: 0,
+    isSpinning: false,
+    slotAngles: [],
+    vipList: [], // [{ nameKr, nameEn, affiliation }]
+  };
+
+  // ===== 저장 =====
+  function save() {
+    try {
+      localStorage.setItem('booth_state_v2', JSON.stringify({
+        stock: state.stock,
+        participants: state.participants,
+        vipList: state.vipList,
+      }));
+    } catch(e) { console.error(e); }
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem('booth_state_v2');
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.stock) state.stock = { ...state.stock, ...d.stock };
+        if (d.participants) state.participants = d.participants;
+        if (d.vipList) state.vipList = d.vipList;
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  // ===== 화면 전환 =====
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    if (name === 'admin') renderAdmin();
+    if (name === 'manual') {
+      document.getElementById('manualName').value = '';
+      document.getElementById('manualAffiliation').value = '';
+    }
+    if (name === 'roulette') drawWheel();
+    window.scrollTo(0, 0);
+  }
+
+  // ===== 룰렛 그리기 (슬롯 기반) =====
+  // SVG는 HTML에 정적으로 박혀있으므로, 슬롯 각도 정보만 미리 정의
+  const SLOT_ANGLES = [
+    { id: 'brush',   start: 0,   end: 60,  center: 30,  sweep: 60 },
+    { id: 'battery', start: 60,  end: 120, center: 90,  sweep: 60 },
+    { id: 'brush',   start: 120, end: 180, center: 150, sweep: 60 },
+    { id: 'fan',     start: 180, end: 240, center: 210, sweep: 60 },
+    { id: 'brush',   start: 240, end: 300, center: 270, sweep: 60 },
+    { id: 'ecobag',  start: 300, end: 360, center: 330, sweep: 60 },
+  ];
+  
+  function drawWheel() {
+    // SVG는 정적이라 다시 그리지 않음. 회전만 리셋.
+    const wheelEl = document.getElementById('wheel');
+    wheelEl.style.transition = 'none';
+    wheelEl.style.transform = 'rotate(0deg)';
+    state.currentRotation = 0;
+    state.slotAngles = SLOT_ANGLES; // spin에서 사용
+    
+    setTimeout(() => {
+      wheelEl.style.transition = 'transform 5s cubic-bezier(0.17, 0.67, 0.21, 1)';
+    }, 50);
+    
+    renderStockBadges();
+  }
+
+    function renderStockBadges() {
+    const html = PRODUCTS.map(p => {
+      const s = state.stock[p.id];
+      const cls = s <= 0 ? 'stock-item zero' : s <= 5 ? 'stock-item low' : 'stock-item';
+      return `<div class="${cls}">
+        <div class="label">${p.name}</div>
+        <div class="count">${p.emoji} ${s}개</div>
+      </div>`;
+    }).join('');
+    document.getElementById('stockDisplay').innerHTML = html;
+  }
+
+  // ===== VIP 매칭 =====
+  function normalizeStr(s) {
+    return (s || '').toString().toLowerCase().replace(/\s+/g, '').replace(/[().,-]/g, '');
+  }
+  
+  // 이름과 소속으로 VIP 명단에서 일치하는 항목 찾기
+  function findVipMatch(inputName, inputAffiliation) {
+    if (!inputName || state.vipList.length === 0) return null;
+    
+    const inN = normalizeStr(inputName);
+    const inA = normalizeStr(inputAffiliation);
+    
+    // 1차: 영문이름 + 소속 일치
+    let match = state.vipList.find(v => {
+      const vEn = normalizeStr(v.nameEn);
+      const vAff = normalizeStr(v.affiliation);
+      return vEn && vEn === inN && (!inA || !vAff || vAff.includes(inA) || inA.includes(vAff));
+    });
+    if (match) return match;
+    
+    // 2차: 한글이름 + 소속 일치
+    match = state.vipList.find(v => {
+      const vKr = normalizeStr(v.nameKr);
+      const vAff = normalizeStr(v.affiliation);
+      return vKr && vKr === inN && (!inA || !vAff || vAff.includes(inA) || inA.includes(vAff));
+    });
+    if (match) return match;
+    
+    // 3차: 이름만으로 매칭 (소속 무시)
+    match = state.vipList.find(v => {
+      const vEn = normalizeStr(v.nameEn);
+      const vKr = normalizeStr(v.nameKr);
+      return (vEn && vEn === inN) || (vKr && vKr === inN);
+    });
+    return match || null;
+  }
+  
+  // ===== 명찰 OCR =====
+  async function handleBadgePhoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = () => rej(new Error('파일 읽기 실패'));
+      r.readAsDataURL(file);
+    });
+
+    const previewUrl = `data:${file.type};base64,${base64}`;
+    document.getElementById('ocrPreview').innerHTML = 
+      `<img src="${previewUrl}" class="max-h-48 mx-auto rounded-lg shadow-md">`;
+    showScreen('ocr');
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: file.type, data: base64 } },
+              { type: "text", text: `이 학회/행사 명찰 사진에서 참가자의 이름과 소속만 추출해 JSON으로만 응답하세요. 다른 설명, 마크다운, 코드펜스 없이 JSON 객체만 반환하세요.
+
+형식: {"name": "이름", "affiliation": "소속"}
+
+- 이름은 한글이 있으면 한글로, 없으면 영문 그대로
+- 소속이 약어(NTRH, SNUH 등)이고 전체명을 알 수 있으면 약어와 함께 표기 (예: "NTRH (국립교통재활병원)")
+- 학회명/행사명은 소속이 아니므로 제외
+- 추출 불가하면 빈 문자열 ""` }
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+      const clean = text.replace(/```json|```/g, '').trim();
+      const result = JSON.parse(clean);
+
+      document.getElementById('confirmPhoto').innerHTML = 
+        `<div class="ocr-preview">
+          <img src="${previewUrl}" alt="명찰">
+          <div class="ocr-preview-text">
+            <div class="ocr-preview-title">📷 명찰 인식 완료</div>
+            <div>아래 정보가 올바른지 확인해주세요. 틀린 부분은 직접 수정 가능합니다.</div>
+          </div>
+        </div>`;
+      
+      // VIP 매칭 시도
+      const ocrName = result.name || '';
+      const ocrAff = result.affiliation || '';
+      const vipMatch = findVipMatch(ocrName, ocrAff);
+      
+      if (vipMatch) {
+        // VIP 매칭: 한글이름이 있으면 한글로 채움
+        document.getElementById('confirmName').value = vipMatch.nameKr || ocrName;
+        document.getElementById('confirmAffiliation').value = vipMatch.affiliation || ocrAff;
+      } else {
+        document.getElementById('confirmName').value = ocrName;
+        document.getElementById('confirmAffiliation').value = ocrAff;
+      }
+      
+      updateVipBadge(vipMatch);
+      checkDuplicate();
+      showScreen('confirm');
+      document.getElementById('confirmName').oninput = onConfirmInput;
+      document.getElementById('confirmAffiliation').oninput = onConfirmInput;
+    } catch (err) {
+      console.error(err);
+      alert('명찰 인식에 실패했습니다. 직접 입력해주세요.\n\n' + err.message);
+      showScreen('manual');
+    }
+    event.target.value = '';
+  }
+
+  function checkDuplicate() {
+    const name = document.getElementById('confirmName').value.trim();
+    const aff = document.getElementById('confirmAffiliation').value.trim();
+    const warn = document.getElementById('duplicateWarning');
+    const btn = document.getElementById('proceedBtn');
+    
+    if (!name) {
+      warn.classList.add('hidden');
+      btn.disabled = true;
+      btn.classList.add('opacity-50');
+      return;
+    }
+    
+    const dup = state.participants.find(p => 
+      p.name.toLowerCase().replace(/\s+/g, '') === name.toLowerCase().replace(/\s+/g, '') &&
+      p.affiliation.toLowerCase().replace(/\s+/g, '') === aff.toLowerCase().replace(/\s+/g, '')
+    );
+    
+    if (dup) {
+      warn.classList.remove('hidden');
+      btn.disabled = true;
+      btn.classList.add('opacity-50');
+    } else {
+      warn.classList.add('hidden');
+      btn.disabled = false;
+      btn.classList.remove('opacity-50');
+    }
+  }
+
+  function submitManual() {
+    const name = document.getElementById('manualName').value.trim();
+    const aff = document.getElementById('manualAffiliation').value.trim();
+    if (!name) { alert('이름을 입력해주세요.'); return; }
+    
+    // VIP 매칭 시도
+    const vipMatch = findVipMatch(name, aff);
+    
+    document.getElementById('confirmPhoto').innerHTML = '';
+    if (vipMatch) {
+      document.getElementById('confirmName').value = vipMatch.nameKr || name;
+      document.getElementById('confirmAffiliation').value = vipMatch.affiliation || aff;
+    } else {
+      document.getElementById('confirmName').value = name;
+      document.getElementById('confirmAffiliation').value = aff;
+    }
+    updateVipBadge(vipMatch);
+    checkDuplicate();
+    showScreen('confirm');
+    document.getElementById('confirmName').oninput = onConfirmInput;
+    document.getElementById('confirmAffiliation').oninput = onConfirmInput;
+  }
+  
+  // 확인 화면에서 입력 변경 시: 중복 검사 + VIP 재매칭
+  function onConfirmInput() {
+    const name = document.getElementById('confirmName').value.trim();
+    const aff = document.getElementById('confirmAffiliation').value.trim();
+    const vipMatch = findVipMatch(name, aff);
+    updateVipBadge(vipMatch);
+    checkDuplicate();
+  }
+  
+  function updateVipBadge(vipMatch) {
+    const badge = document.getElementById('vipBadge');
+    if (vipMatch) {
+      badge.classList.remove('hidden');
+      badge.innerHTML = `
+        <div class="vip-badge">
+          <div class="vip-badge-icon">⭐</div>
+          <div style="flex: 1;">
+            <div class="vip-badge-title">VIP 명단 등록자</div>
+            <div class="vip-badge-name">
+              ${vipMatch.nameKr || ''} ${vipMatch.nameEn ? `<span style="font-weight:normal; font-size:13px; color:#b45309;">(${vipMatch.nameEn})</span>` : ''}
+            </div>
+            ${vipMatch.affiliation ? `<div class="vip-badge-aff">${vipMatch.affiliation}</div>` : ''}
+          </div>
+        </div>
+      `;
+    } else {
+      badge.classList.add('hidden');
+      badge.innerHTML = '';
+    }
+  }
+
+  function proceedToRoulette() {
+    const name = document.getElementById('confirmName').value.trim();
+    const aff = document.getElementById('confirmAffiliation').value.trim();
+    if (!name) return;
+    state.pending = { name, affiliation: aff };
+    document.getElementById('rouletteParticipant').textContent = 
+      `${name}${aff ? ' · ' + aff : ''}`;
+    showScreen('roulette');
+  }
+
+  // ===== 룰렛 회전 =====
+  function spin() {
+    if (state.isSpinning) return;
+    
+    const available = PRODUCTS.filter(p => state.stock[p.id] > 0);
+    if (available.length === 0) {
+      alert('모든 경품이 소진되었습니다.');
+      return;
+    }
+    
+    state.isSpinning = true;
+    document.getElementById('spinBtn').disabled = true;
+    document.getElementById('spinBtn').textContent = '...';
+
+    // 잔여 수량 기반 가중치 추첨
+    const totalStock = available.reduce((s, p) => s + state.stock[p.id], 0);
+    let rand = Math.random() * totalStock;
+    let picked = available[0];
+    for (const p of available) {
+      rand -= state.stock[p.id];
+      if (rand <= 0) { picked = p; break; }
+    }
+    
+    // 해당 상품이 있는 모든 슬롯 중 하나를 랜덤 선택
+    const matchingSlots = state.slotAngles.filter(s => s.id === picked.id);
+    const slot = matchingSlots[Math.floor(Math.random() * matchingSlots.length)];
+    
+    // 슬롯 내부에서 약간의 랜덤 (가장자리 충돌 방지)
+    const inset = slot.sweep * 0.15;
+    const targetCenter = slot.start + inset + Math.random() * (slot.sweep - 2 * inset);
+    
+    // 룰렛이 targetCenter 방향이 12시(포인터)로 오게 회전
+    const extraRotations = 5;
+    const targetAngle = 360 - targetCenter;
+    state.currentRotation += extraRotations * 360 + (targetAngle - (state.currentRotation % 360));
+    
+    const wheelEl = document.getElementById('wheel');
+    // 회전 transition 강제 적용 (drawWheel에서 setTimeout으로 복원하기 전에 spin이 호출되어도 작동하도록)
+    wheelEl.style.transition = 'transform 5s cubic-bezier(0.17, 0.67, 0.21, 1)';
+    // 강제 reflow로 transition 보장
+    void wheelEl.offsetWidth;
+    wheelEl.style.transform = `rotate(${state.currentRotation}deg)`;
+
+    setTimeout(() => {
+      state.stock[picked.id]--;
+      const vipMatch = findVipMatch(state.pending.name, state.pending.affiliation);
+      state.participants.push({
+        ts: new Date().toISOString(),
+        name: state.pending.name,
+        affiliation: state.pending.affiliation,
+        prize: picked.name,
+        isVip: !!vipMatch,
+      });
+      save();
+      showResult(picked, !!vipMatch);
+      state.isSpinning = false;
+      document.getElementById('spinBtn').disabled = false;
+      document.getElementById('spinBtn').textContent = 'START';
+      updateStatBar();
+    }, 5100);
+  }
+
+  let autoCloseTimerId = null;
+  
+  // 자체 색종이 효과 (canvas-confetti 라이브러리 없이 CSS 애니메이션)
+  function launchConfetti(isVip) {
+    // 기존 색종이 컨테이너 제거
+    const existing = document.getElementById('confettiContainer');
+    if (existing) existing.remove();
+    
+    const container = document.createElement('div');
+    container.id = 'confettiContainer';
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
+    
+    const colors = isVip 
+      ? ['#fbbf24', '#f59e0b', '#fde68a', '#fcd34d', '#f97316', '#fef3c7']
+      : ['#60a5fa', '#10b981', '#ec4899', '#f59e0b', '#a78bfa', '#34d399', '#fb7185'];
+    
+    const shapes = ['10px 14px', '8px 8px', '12px 4px']; // 길쭉/정사각/막대
+    const particleCount = 80;
+    
+    for (let i = 0; i < particleCount; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const shape = shapes[Math.floor(Math.random() * shapes.length)];
+      const [w, h] = shape.split(' ');
+      const left = Math.random() * 100; // 0~100%
+      const duration = 2.5 + Math.random() * 2; // 2.5~4.5초
+      const delay = Math.random() * 0.8; // 0~0.8초 지연
+      const horizontalShift = (Math.random() - 0.5) * 200; // -100px ~ +100px
+      
+      piece.style.left = left + '%';
+      piece.style.width = w;
+      piece.style.height = h;
+      piece.style.backgroundColor = color;
+      piece.style.borderRadius = Math.random() > 0.5 ? '2px' : '50%';
+      piece.style.animationDuration = duration + 's';
+      piece.style.animationDelay = delay + 's';
+      piece.style.setProperty('--shift', horizontalShift + 'px');
+      
+      container.appendChild(piece);
+    }
+    
+    // 5초 후 정리
+    setTimeout(() => {
+      if (container.parentNode) container.parentNode.removeChild(container);
+    }, 5500);
+  }
+  
+  function showResult(picked, isVip) {
+    const modal = document.getElementById('resultModal');
+    modal.classList.add('show');
+    
+    document.getElementById('modalEmoji').textContent = picked.emoji;
+    document.getElementById('modalResult').textContent = picked.name;
+    
+    // 수령자 표시
+    const recipientText = `${state.pending.name}${state.pending.affiliation ? ' · ' + state.pending.affiliation : ''}`;
+    document.getElementById('modalRecipient').textContent = recipientText;
+    
+    // VIP 배지
+    const vipBadge = document.getElementById('resultVipBadge');
+    if (isVip) {
+      vipBadge.classList.remove('hidden');
+    } else {
+      vipBadge.classList.add('hidden');
+    }
+    
+    // 운영자 안내문
+    const guideText = isVip 
+      ? `⭐ VIP ${state.pending.name}님께 「${picked.name}」 ${picked.emoji}을(를) 전달해주세요`
+      : `${state.pending.name}님께 「${picked.name}」 ${picked.emoji}을(를) 전달해주세요`;
+    document.getElementById('staffGuide').textContent = guideText;
+    
+    // 색종이(confetti) 효과 - 자체 구현 (CSS 애니메이션)
+    launchConfetti(isVip);
+    
+    // 자동 닫기 카운트다운 (10초)
+    let secondsLeft = 10;
+    document.getElementById('autoCloseTimer').textContent = secondsLeft;
+    if (autoCloseTimerId) clearInterval(autoCloseTimerId);
+    autoCloseTimerId = setInterval(() => {
+      secondsLeft--;
+      document.getElementById('autoCloseTimer').textContent = secondsLeft;
+      if (secondsLeft <= 0) {
+        clearInterval(autoCloseTimerId);
+        autoCloseTimerId = null;
+        finishRoulette();
+      }
+    }, 1000);
+  }
+
+  function finishRoulette() {
+    if (autoCloseTimerId) {
+      clearInterval(autoCloseTimerId);
+      autoCloseTimerId = null;
+    }
+    document.getElementById('resultModal').classList.remove('show');
+    state.pending = null;
+    state.currentRotation = 0;
+    const wheelEl = document.getElementById('wheel');
+    wheelEl.style.transition = 'none';
+    wheelEl.style.transform = 'rotate(0deg)';
+    setTimeout(() => {
+      wheelEl.style.transition = 'transform 5s cubic-bezier(0.17, 0.67, 0.21, 1)';
+    }, 50);
+    showScreen('main');
+  }
+
+  // ===== 관리 =====
+  function renderAdmin() {
+    // VIP 명단
+    document.getElementById('vipCount').textContent = `(${state.vipList.length}명)`;
+    const vipHtml = state.vipList.length === 0
+      ? '<tr><td colspan="4" style="padding: 24px; text-align: center; color: #94a3b8;">VIP 명단이 비어있습니다. 엑셀을 업로드해주세요.</td></tr>'
+      : state.vipList.map((v, i) => `
+        <tr>
+          <td style="color: #94a3b8;">${i+1}</td>
+          <td style="font-weight: 600;">${v.nameKr || '-'}</td>
+          <td style="color: #475569;">${v.nameEn || '-'}</td>
+          <td style="color: #475569;">${v.affiliation || '-'}</td>
+        </tr>
+      `).join('');
+    document.getElementById('vipListBody').innerHTML = vipHtml;
+    
+    // 재고 편집
+    const stockHtml = PRODUCTS.map(p => `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 130px; font-weight: 600; color: #334155;">${p.emoji} ${p.name}</div>
+        <input type="number" min="0" value="${state.stock[p.id]}" id="stock-${p.id}" 
+               style="flex: 1; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; font-weight: 600;">
+        <button onclick="updateStock('${p.id}')" style="padding: 10px 16px; background: #1e3a5f; color: white; border-radius: 6px; font-size: 14px; font-weight: 600;">저장</button>
+      </div>
+    `).join('');
+    document.getElementById('stockEditor').innerHTML = stockHtml;
+    
+    // 참가자 명단
+    document.getElementById('participantCount').textContent = `(${state.participants.length}명)`;
+    const listHtml = state.participants.length === 0 
+      ? '<tr><td colspan="6" style="padding: 24px; text-align: center; color: #94a3b8;">아직 참가자가 없습니다</td></tr>'
+      : state.participants.slice().reverse().map((p, i) => {
+        const time = new Date(p.ts).toLocaleString('ko-KR', { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit' });
+        const vipMark = p.isVip ? '<span style="color: #f59e0b; font-size: 16px;">⭐</span>' : '';
+        return `<tr class="${p.isVip ? 'vip-row' : ''}">
+          <td style="color: #94a3b8;">${state.participants.length - i}</td>
+          <td style="color: #475569;">${time}</td>
+          <td>${vipMark}</td>
+          <td style="font-weight: 600;">${p.name}</td>
+          <td style="color: #475569;">${p.affiliation || '-'}</td>
+          <td style="color: #1e3a5f; font-weight: 600;">${p.prize}</td>
+        </tr>`;
+      }).join('');
+    document.getElementById('participantList').innerHTML = listHtml;
+  }
+  
+  // ===== VIP 명단 업로드 =====
+  function handleVipFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        
+        if (rows.length === 0) {
+          showVipStatus('error', '엑셀에 데이터가 없습니다.');
+          return;
+        }
+        
+        // 컬럼명 자동 인식 (유연한 매칭)
+        const sampleKeys = Object.keys(rows[0]);
+        const findCol = (patterns) => {
+          for (const key of sampleKeys) {
+            const norm = key.toString().toLowerCase().replace(/\s+/g, '');
+            for (const pat of patterns) {
+              if (norm.includes(pat)) return key;
+            }
+          }
+          return null;
+        };
+        
+        const krCol = findCol(['한글', '국문', '성명', '이름', 'koreanname', 'kname']);
+        const enCol = findCol(['영문', '영어', 'englishname', 'ename', 'name(eng)', 'name_en']);
+        const affCol = findCol(['소속', '기관', '병원', 'affiliation', 'organization', 'hospital', 'institution']);
+        
+        // 위 매칭 실패 시 컬럼 순서로 추정
+        let krKey = krCol, enKey = enCol, affKey = affCol;
+        if (!krKey && !enKey && sampleKeys.length >= 2) {
+          // 첫 컬럼 = 한글, 두번째 = 영문, 세번째 = 소속으로 추정
+          krKey = sampleKeys[0];
+          enKey = sampleKeys[1];
+          if (sampleKeys.length >= 3) affKey = sampleKeys[2];
+        }
+        
+        const newList = rows.map(row => {
+          const nameKr = krKey ? (row[krKey] || '').toString().trim() : '';
+          const nameEn = enKey ? (row[enKey] || '').toString().trim() : '';
+          const affiliation = affKey ? (row[affKey] || '').toString().trim() : '';
+          return { nameKr, nameEn, affiliation };
+        }).filter(v => v.nameKr || v.nameEn); // 이름이 하나라도 있어야 함
+        
+        if (newList.length === 0) {
+          showVipStatus('error', '유효한 명단을 찾지 못했습니다. 컬럼 이름을 확인해주세요.');
+          return;
+        }
+        
+        state.vipList = newList;
+        save();
+        renderAdmin();
+        showVipStatus('success', 
+          `${newList.length}명의 VIP 명단을 등록했습니다. ` +
+          `(인식된 컬럼: 한글=${krKey || '-'}, 영문=${enKey || '-'}, 소속=${affKey || '-'})`);
+      } catch (err) {
+        console.error(err);
+        showVipStatus('error', '파일 읽기 실패: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = '';
+  }
+  
+  function showVipStatus(type, msg) {
+    const el = document.getElementById('vipUploadStatus');
+    el.classList.remove('hidden');
+    if (type === 'success') {
+      el.style.background = '#d1fae5';
+      el.style.color = '#065f46';
+      el.style.border = '1px solid #6ee7b7';
+    } else {
+      el.style.background = '#fee2e2';
+      el.style.color = '#991b1b';
+      el.style.border = '1px solid #fca5a5';
+    }
+    el.textContent = msg;
+    setTimeout(() => el.classList.add('hidden'), 8000);
+  }
+  
+  function downloadVipTemplate() {
+    const sample = [
+      { '한글이름': '홍길동', '영문이름': 'Hong Gildong', '소속': '국립교통재활병원' },
+      { '한글이름': '김철수', '영문이름': 'Kim Cheolsu', '소속': '서울대학교병원' },
+      { '한글이름': '이영희', '영문이름': 'Lee Younghee', '소속': '분당서울대병원' },
+    ];
+    const ws = XLSX.utils.json_to_sheet(sample);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'VIP명단');
+    XLSX.writeFile(wb, 'VIP명단_템플릿.xlsx');
+  }
+  
+  function clearVipList() {
+    if (!confirm(`VIP 명단 ${state.vipList.length}명을 모두 삭제하시겠습니까?`)) return;
+    state.vipList = [];
+    save();
+    renderAdmin();
+  }
+
+  function updateStock(id) {
+    const val = parseInt(document.getElementById('stock-' + id).value);
+    if (isNaN(val) || val < 0) { alert('0 이상의 숫자를 입력해주세요'); return; }
+    state.stock[id] = val;
+    save();
+    renderAdmin();
+  }
+
+  function exportCSV() {
+    if (state.participants.length === 0) { alert('내보낼 데이터가 없습니다'); return; }
+    let csv = '\uFEFF번호,시각,VIP,이름,소속,당첨상품\n';
+    state.participants.forEach((p, i) => {
+      const time = new Date(p.ts).toLocaleString('ko-KR');
+      const vip = p.isVip ? 'VIP' : '';
+      csv += `${i+1},"${time}","${vip}","${p.name}","${p.affiliation || ''}","${p.prize}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `부스참가자_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function resetAll() {
+    if (!confirm('참가자 명단을 모두 삭제하시겠습니까?\n(재고는 유지됩니다)')) return;
+    if (!confirm('정말 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    state.participants = [];
+    save();
+    renderAdmin();
+    updateStatBar();
+  }
+
+  function updateStatBar() {
+    const total = state.participants.length;
+    const vips = state.participants.filter(p => p.isVip).length;
+    const vipText = vips > 0 ? ` · ⭐VIP ${vips}` : '';
+    document.getElementById('statBar').textContent = `참가자 ${total}명${vipText}`;
+  }
+
+  load();
+  updateStatBar();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model BoothStock {
+  productId String @id
+  count     Int
+}
+
+model VipEntry {
+  id          Int    @id @default(autoincrement())
+  nameKr      String @default("")
+  nameEn      String @default("")
+  affiliation String @default("")
+}
+
+model Participant {
+  id             Int       @id @default(autoincrement())
+  ts             DateTime  @default(now())
+  name           String
+  affiliation    String    @default("")
+  jobType        String    @default("")
+  phone          String    @default("")
+  prize          String    @default("")
+  isVip          Boolean   @default(false)
+  quizQuestionId Int?
+  quizCorrect    Boolean?
+  completedAt    DateTime?
+}

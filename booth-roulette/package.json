@@ -1,0 +1,21 @@
+{
+  "name": "booth-roulette",
+  "private": true,
+  "version": "1.0.0",
+  "description": "부스 경품 룰렛 이벤트 (Vite + React + Fastify)",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:client": "node scripts/wait-for-server.mjs && npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "db:migrate": "npm --prefix server run prisma:migrate",
+    "db:seed": "npm --prefix server run seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

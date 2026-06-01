@@ -1,0 +1,25 @@
+# 참고용 외부 저장소 (별도 clone)
+KOIHA-NTRH/
+
+# Dependencies & build
+node_modules/
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.tsbuildinfo
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# SQLite (로컬 개발 DB)
+**/dev.db
+**/dev.db-journal
+**/dev.db-wal
+**/dev.db-shm
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
